@@ -40,37 +40,66 @@ optional arguments:
   --------------------
   
   -h, --help            show this help message and exit
+  
   -ra, --readall        Read all the SMS messages recieved
+  
   -raw, --readallraw    Read all the SMS message and display raw output
+  
   -r READN, --readn READN
+  
                         Read SMS by ID
+                        
   -s SEARCH, --search SEARCH
+  
                         Search 'from', 'message', and 'datetime' fields in messages. Regex can my used.
+                        
                         FYI: '(?i)' in regex expression will turn off case sensitive
+                        
   -k KEY, --key KEY     Return key field only from Search
+  
                         ie. -s 'hello' -k 'from'.
+                        
                         Search returns only 'from' field
+                        
   -rl [READLASTN], --readlastn [READLASTN]
+  
                         Display the last N sms messages.
+                        
                         Default: Last 1 message
+                        
   -ls, --lastsearch     Show the messages made with the last search command
+  
   -sl, --showlist       Show the IDs of the messages made with the last command
+  
   --shortcodes          Show all messages from shortcode phone numbers 4-6 digits
+  
   -DEL DELETEN, --deleten DELETEN
+  
                         Delete SMS by ID
+                        
   -DALL, --deleteall    Delete all the SMS messages recieved
+  
   -DLIST, --deletelist  Delete ALL the message IDs in --lastsearch list
+  
   -DL [DELETELASTN], --deletelastn [DELETELASTN]
+  
                         Delete the last N messages by date ONLY (Ascending)
+                        
   -p PATH, --path PATH  
-                        Default File Path: /pimedia-scripts/mms/modem_tmp_files/
-                        Image File Path: /mnt/nfs/mycloud/mobilesvr/movie_posters/
-                        Files must be in either of the above directories
-                        unless otherwise specified.
+  
+                        Default File Path: mms/modem_tmp_files/
+                        
+                        Files must be in the above directories unless otherwise specified.
+                        
   -b BAUDRATE, --baudrate BAUDRATE
+  
                         Default: 115200
+                        
   -o PORT, --port PORT  Default: /dev/ttyUSB3
+  
   -d, --debug           Default: False
+  
   --json                Output results as json [Default]
+  
   --text                Output results as text
 
