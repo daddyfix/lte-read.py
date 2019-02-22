@@ -1,5 +1,4 @@
 # Read SMS from Serial Port Cellular LTE Modem
-----------------------------------------------------
 
 Read SMS Messages
 
