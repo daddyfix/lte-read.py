@@ -81,8 +81,6 @@ ser = 0
 debug = False
 #debug = True
 
-output_types = [ 'json', 'text' ]
-default_type = 0
 errorcodes =  False
 textfile_holder=''
 imagefile_holder=''
@@ -99,9 +97,9 @@ AT_COMMAND={
 filename = inspect.getframeinfo(inspect.currentframe()).filename
 modem_files_path = os.path.dirname(os.path.abspath(filename))+'/modem_tmp_files/'
 modem_file_cutoff_in_days = 10
-imagepath = 'movie_posters/'
+imagepath = '/mnt/nfs/mycloud/mobilesvr/movie_posters/'
 filebase = os.path.splitext(filename)[0]
-logfile = 'logs/lte-read.py.log'
+logfile = '/mnt/nfs/mycloud/mobilesvr/logs/lte-read.py.log'
 errorCodesFile = os.path.dirname(os.path.abspath(filename))+'/errorcodes.py'
 atfile = os.path.dirname(os.path.abspath(filename))+'/at_commands.txt'
 lastReadIdsFile = os.path.dirname(os.path.abspath(filename))+'/lte-read-history.txt'
@@ -278,6 +276,8 @@ def action_by_ID(action, i):
         ret = at_command(at_cmd+item, ok='OK', timeout=3, length=100)
         bulk += ret['read']
 
+    # debug_msg("AT Command Resonse: "+bulk)
+
     if action == 'read':
         if not re.search('(?i)error', bulk, re.IGNORECASE):
             data = search_for_messages(bulk, at_search)
@@ -349,9 +349,11 @@ def parse_all_messages(bulk_msgs, msg_separator='^\\+CMGL:'):
             if item['from'][:2] == '+1':
                 item['from'] = item['from'][2:]
             # date is YY/MM/DD and Time is UTC 24:24:00+00
+            # sometimes the UTC time has a minus (-) instead of a (+)
+            parts[5] = parts[5].replace('-','+')
             dt = parts[4].strip("\"") + ' ' +parts[5].strip("\"").split('+')[0]
-            # debug_msg(" - Converting UTC date ["+dt+"] to EST")
-            dateobj = datetime.datetime.strptime(dt, '%y/%m/%d %H:%M:%S')
+            #debug_msg(" - Converting UTC date ["+dt+"] to EST")
+            dateobj = datetime.datetime.strptime(dt.strip(), '%y/%m/%d %H:%M:%S')
             # Set Time zone from UTC to EST
             from_tz = tz.gettz('UTC')
             to_tz = tz.gettz('US/Eastern')
@@ -383,7 +385,7 @@ def parse_all_messages(bulk_msgs, msg_separator='^\\+CMGL:'):
                 result.append(item)
                 pointer = 0
 
-    debug_msg("\n"+str(len(result))+" Total Messages Read")
+    debug_msg(str(len(result))+" Total Messages Read")
 
     result = sort_msgs_by_date(result)
 
@@ -460,7 +462,7 @@ def get_messages_by_ids(mylist, myids):
 
     new_list=[]
 
-    debug_msg("Searching 2 Lists for matching IDs ...", False)
+    debug_msg("Searching Lists for matching IDs ...", False)
 
     for myid in myids:
         for item in mylist:
@@ -468,7 +470,7 @@ def get_messages_by_ids(mylist, myids):
                 new_list.append(item)
                 break
 
-    debug_msg(str(len(new_list))+" records found")
+    debug_msg(str(len(new_list))+" records found ["+' '.join(new_list)+"]")
 
     return new_list 
 
@@ -479,12 +481,12 @@ def get_messages_by_ids(mylist, myids):
 ---------------------------------------------------- """
 def get_shortcodes(mylist):
 
-    debug_msg("Searching messages for shortcodes...")
+    debug_msg("Searching messages which are not 7-11 Digits (shortcodes)...")
 
     new_list= []
 
     for item in mylist:
-        if len(item['from']) >= 4 and len(item['from']) <=6:
+        if len(item['from']) <7 or len(item['from']) >10:
             new_list.append(item)
     
     return new_list
@@ -544,13 +546,14 @@ def search_for_messages(bulk, at_search='CMGR'):
 
             # if dict is not empty
             if item:
+                debug_msg("Saving Message Data "+json.dumps(item))
                 result.append(item)
                 item={}
                 item["msg"]=''
 
             parts = [x.strip() for x in line.split("=")]
             item["id"] = parts[1].strip()
-            # debug_msg("Saved ID "+item["id"])
+            debug_msg("Found line "+str(counter)+" has an ID "+item["id"]+" -> "+line.strip())
             pointer = 2
         elif pointer == 2 and len(line) > 0 and detail_search in line[:len(detail_search)]:
             parts = [x.strip() for x in line.split(",")]
@@ -573,6 +576,7 @@ def search_for_messages(bulk, at_search='CMGR'):
             # debug_msg(" - Stored Date as: "+prettydate)
             item["datetime"] = prettydate
             pointer = 3
+            #debug_msg("Adding Details to List -> "+item["datetime"])
 
         elif pointer == 3 and len(line) > 0:
             # debug_msg("Reading Message ID: "+item['id'])
@@ -586,11 +590,20 @@ def search_for_messages(bulk, at_search='CMGR'):
                     item["msg"] = item["msg"]+"\n"+tmpstr.strip()
                 else:
                     item["msg"] = tmpstr.strip()
-                # debug_msg("line: "+str(counter)+' -->'+item['msg']+'<')
+                #debug_msg("line: "+str(counter)+' -->'+item['msg']+'<')
 
             else:
-                result.append(item)
+                #result.append(item)
                 pointer = 1
+                #debug_msg("Saving Message Data "+json.dumps(item))
+
+        #debug_msg("Pointer = "+str(pointer))
+
+    if item:
+        debug_msg("Saving Message Data "+json.dumps(item))
+        result.append(item)
+
+    #debug_msg("Messages Gathered "+str(json.dumps(result)))
 
     result = sort_msgs_by_date(result)
 
@@ -948,14 +961,14 @@ Read / Delete / Search SMS OPTIONS
 # ----------------------------------------------------------
 parser.add_argument('-ra','--readall', action='store_true', help="Read all the SMS messages recieved", required=False)
 parser.add_argument('-raw','--readallraw', action='store_true', help="Read all the SMS message and display raw output", required=False)
-parser.add_argument('-r','--readn', type=int, help="Read SMS by ID", required=False)
+parser.add_argument('-r','--readn', type=str, help="Read SMS by ID. IDs can be separated by comma (ie. 20,25,30)", required=False)
 parser.add_argument('-s','--search', type=str, help="Search 'from', 'message', and 'datetime' fields in messages. Regex can my used.\nFYI: '(?i)' in regex expression will turn off case sensitive", required=False)
 parser.add_argument('-k','--key',  type=str, help="Return key field only from Search\nie. -s 'hello' -k 'from'.\nSearch returns only 'from' field", required=False)
 parser.add_argument('-rl','--readlastn', nargs='?', type=int, default=-1, help="Display the last N sms messages.\nDefault: Last 1 message", required=False)
 parser.add_argument('-ls','--lastsearch', action='store_true', help="Show the messages made with the last search command", required=False)
 parser.add_argument('-sl','--showlist', action='store_true', help="Show the IDs of the messages made with the last command", required=False)
-parser.add_argument('--shortcodes', action='store_true', help="Show all messages from shortcode phone numbers 4-6 digits", required=False)
-parser.add_argument('-DEL','--deleten', type=int, help="Delete SMS by ID", required=False)
+parser.add_argument('--shortcodes', action='store_true', help="Show all messages from shortcode phone numbers not 7-11 digits", required=False)
+parser.add_argument('-DEL','--deleten', type=str, help="Delete SMS by ID. IDs can be separated by comma (ie. 20,25,30)", required=False)
 parser.add_argument('-DALL','--deleteall', action='store_true', help="Delete all the SMS messages recieved", required=False)
 parser.add_argument('-DLIST','--deletelist', action='store_true', help="Delete ALL the message IDs in --lastsearch list", required=False)
 parser.add_argument('-DL','--deletelastn', nargs='?', type=int, default=-1, help="Delete the last N messages by date ONLY (Ascending)", required=False)
@@ -1074,7 +1087,10 @@ init_serial()
 ----------------------------------"""
 if args['readn']:
     debug_msg("Reading SMS Message ID "+str(args['readn']))
-    message_list = action_by_ID('read', str(args['readn']))
+
+    read_list = str(args['readn']).split(",")
+
+    message_list = action_by_ID('read', read_list)
 
     if args['key']:
         message_list = get_key_list(args['key'], message_list)
@@ -1119,7 +1135,9 @@ if args['deleten']:
 
     debug_msg("Deleting SMS Message ID "+str(args['deleten']))
 
-    result = action_by_ID('delete', str(args['deleten']))
+    delete_list = str(args['deleten']).split(",")
+
+    result = action_by_ID('delete', delete_list)
     
     output_close(result)
 
@@ -1174,6 +1192,7 @@ if args['readall']:
     if args['shortcodes']:
         message_list = get_shortcodes(message_list)
         if not message_list:
+            save_list([])
             output_close("empty")
 
         # make a new list of IDs
@@ -1204,6 +1223,7 @@ if args['search']:
     if args['shortcodes']:
         message_list = get_shortcodes(message_list)
         if not message_list:
+            save_list([])
             output_close("empty")
         # make a new list of IDs
         ids = get_key_values('id', message_list)
