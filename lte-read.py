@@ -2,6 +2,17 @@
 # -*- coding: utf-8 -*-
 
 """ ----------------------------------------------------------
+CHANGELOG
+
+Jan 1 2020
+    - Added function to allow output of more than one search key
+      by allowing multiple keys (-k)
+      ie. -k from -k datetime
+      keys is now a list of lists
+
+----------------------------------------------------------- """ 
+
+""" ----------------------------------------------------------
 
     Install Modules if not installed
 
@@ -47,6 +58,15 @@ import logging
 import glob
 import json
 import time
+
+# sorting sort()
+from operator import itemgetter
+
+# Removine Duplicates in list
+import itertools
+
+#import operator
+#from operator import itemgetter, attrgetter
 
 # Convertions
 import humanfriendly
@@ -430,6 +450,7 @@ def search_list(mylist, search_str):
         ids = get_key_values('id', new_list)
         # Remove any duplicate IDs in the saved id list
         # ids = list(set(ids))
+        ids = list(ids for ids,_ in itertools.groupby(ids))
 
         # Dont save unless the list has values
         if ids:
@@ -642,7 +663,7 @@ def get_last_messages(mylist, num=1):
     if num > len(mylist):
         return []
 
-    # negate the number so we cane het the last of the list
+    # negate the number so we can get the last of the list
     num = num*-1
 
     return mylist[num:]
@@ -653,24 +674,25 @@ def get_last_messages(mylist, num=1):
 
     Get a list of Key values for a given key from a list
 
-    arg string key name
+    arg string list of key names
     arg string list of dictionaries to search
 
     return list of key values
 
 ---------------------------------------------------- """
-def get_key_list(mykey, mylist):
+def get_key_list(mykeys, mylist):
 
-    debug_msg("Getting values for key '"+mykey+"' only")
+    debug_msg("Getting values for keys ("+','.join(mykeys)+") only")
     
-    key_list = get_key_values(mykey, mylist)
+    key_list = get_key_values(mykeys, mylist)
 
     if not key_list:
-        msg = "Key: "+mykey+" is not valid"
+        msg = "Keys ("+','.join(mykeys)+") are not found or invalid"
         output_close(msg)
     else:
         debug_msg("Removing Duplicates in list ... Now size: ", False)
-        key_list = list(set(key_list))
+        key_list = list(key_list for key_list,_ in itertools.groupby(key_list))
+        #key_list = list(set(key_list))
         debug_msg(str(len(key_list)))
     
     return key_list
@@ -682,17 +704,38 @@ def get_key_list(mykey, mylist):
 
     Get a list of Key values for a given key
 
-    arg string key name
+    arg string key 
     arg string list of dictionaries to search
 
-    return list of key values
+    return list of nested list of values
 
 ---------------------------------------------------- """
-def get_key_values(mykey, mylist):
+def get_key_values(mykeys, mylist):
+
     new_list=[]
-    for item in mylist:
-        if mykey in item:
-            new_list.append(item[mykey])
+
+    if type(mykeys) is str:
+        for item in mylist:
+            #debug("Searching list for key :"+mykeys)
+            if mykeys and mykeys in item:
+                #debug(" - Adding : "+item[mykeys])
+                new_list.append(item[mykeys])
+
+    if type(mykeys) is list:
+        for item in mylist:
+            tmp_list = []
+            for k in mykeys:
+                if k in item:
+                    #debug_msg("get_key_values: appending "+item[k]+" "+','.join(item)+" to tmp_list")
+                    debug_msg("get_key_values: appending "+item[k]+" to tmp_list")
+                    tmp_list.append(item[k])
+            new_list.append(tmp_list)
+
+        new_list.sort(key=itemgetter(0))
+
+    #print(*new_list, sep = "\n")
+    #print('\n'.join(map(str, new_list)))
+
     return new_list
 # End Function
 
@@ -812,7 +855,15 @@ def output_close(myobject):
         if type(myobject) is list and type(myobject[0]) is dict:
             # we have no choice but to force json
             myoutput = json.dumps(myobject, indent=4)
-        if type(myobject) is list:
+        elif type(myobject) is list and type(myobject[0]) is list:
+            myoutput = ''
+            for item in myobject:
+                if len(item) > 1:
+                    myoutput += ','.join(item)+"\n"
+                else:
+                    myoutput += item[0]+' '
+            myoutput = myoutput[:-1]
+        elif type(myobject) is list:
             # we have no choice but to force json
             myoutput = ' '.join(myobject)
         elif type(myobject) is dict:
@@ -879,16 +930,25 @@ def save_list(mylist, myfile=''):
 
     debug_msg("Saving List to file")
 
+    # check if first element in list is multidemetional ie. [ [1,2,3], [4,5,6] ]
+    if isinstance(mylist[0], list):
+        # make a new list of only IDs
+        ids = get_key_values('id', mylist)
+    else:
+        ids = mylist
+
+    # Dont save unless the list has values
+    if not ids:
+        debug_msg("There were no IDs found. Save Aborted.")
+        return
+
     if not myfile:
         global lastReadIdsFile
         myfile = lastReadIdsFile
     with open(myfile, "w") as f:
-        # sort the list
-        mylist.sort(key=int)
-        for a in mylist:
-            f.write(str(a) +"\n")
+        f.write(','.join(mylist) +"\n")
 
-        debug_msg("Lines Saved: "+str(len(mylist)))
+    debug_msg("Lines Saved: "+str(len(mylist)))
 # END Function
 
 
@@ -910,9 +970,10 @@ def load_list(myfile=''):
     else:
         with open(myfile, "r") as f:
             for line in f:
-                mylist.append(line.strip())
-            mylist.sort(key=int)
-            mylist = [ str(item) for item in mylist ]
+                mylist = line.split(",")
+                #record.append()
+                #mylist.append(tmp_list)
+                #record=[]
 
     debug_msg("Loaded "+str(len(mylist))+" IDs")
 
@@ -963,7 +1024,7 @@ parser.add_argument('-ra','--readall', action='store_true', help="Read all the S
 parser.add_argument('-raw','--readallraw', action='store_true', help="Read all the SMS message and display raw output", required=False)
 parser.add_argument('-r','--readn', type=str, help="Read SMS by ID. IDs can be separated by comma (ie. 20,25,30)", required=False)
 parser.add_argument('-s','--search', type=str, help="Search 'from', 'message', and 'datetime' fields in messages. Regex can my used.\nFYI: '(?i)' in regex expression will turn off case sensitive", required=False)
-parser.add_argument('-k','--key',  type=str, help="Return key field only from Search\nie. -s 'hello' -k 'from'.\nSearch returns only 'from' field", required=False)
+parser.add_argument('-k','--key', action='append', type=str, help="Return key fields only from Search\nie. -s 'hello' -k 'from' -k 'datetime'.\nSearch returns only key fields\nSort is done on the first key specified", required=False)
 parser.add_argument('-rl','--readlastn', nargs='?', type=int, default=-1, help="Display the last N sms messages.\nDefault: Last 1 message", required=False)
 parser.add_argument('-ls','--lastsearch', action='store_true', help="Show the messages made with the last search command", required=False)
 parser.add_argument('-sl','--showlist', action='store_true', help="Show the IDs of the messages made with the last command", required=False)
@@ -1031,12 +1092,14 @@ if args['key']:
     Show the last saved IDs list file
 ----------------------------------------------"""
 if args['showlist']:
-    tmp_list = load_list()
-    mylist = ' '.join(tmp_list)
-    debug_msg("Last read or search IDs ["+mylist+']')
-    if not mylist:
-        mylist = "empty"
-    print mylist
+    mylist = load_list()
+    strlist = ''
+    for s in mylist:
+        strlist+=" ".join(map(str, s))+"\n"
+    debug_msg("Last read or search IDs\n"+strlist)
+    if not strlist:
+        strlist = "empty"
+    print strlist
     sys.exit()
 
 
@@ -1194,11 +1257,7 @@ if args['readall']:
         if not message_list:
             save_list([])
             output_close("empty")
-
-        # make a new list of IDs
-        ids = get_key_values('id', message_list)
-        # Dont save unless the list has values
-        if ids:
+        else:
             save_list(ids)
 
     if args['key']:
@@ -1315,4 +1374,5 @@ if args['deletelastn'] is None or args['deletelastn'] > -1:
     result = action_by_ID('delete', ids)
 
     output_close(result)
+
 
