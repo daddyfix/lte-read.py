@@ -6,7 +6,7 @@ CHANGELOG
 Oct 2 2020
     - Fixed --shortcodes bug
     - Fixed --showlist bug
-     
+
 Jan 1 2020
     - Added function to allow output of more than one search key
       by allowing multiple keys (-k)
@@ -494,7 +494,13 @@ def get_messages_by_ids(mylist, myids):
                 new_list.append(item)
                 break
 
-    debug_msg(str(len(new_list))+" records found ["+' '.join(new_list)+"]")
+    debug_msg(str(len(new_list))+" records found ["+' '.join(new_list[0])+"]")
+
+    from pprint import pprint
+
+    print "new_list is "+str(type(new_list))
+    pprint(new_list)
+    sys.exit(0)
 
     return new_list 
 
@@ -932,6 +938,10 @@ def save_date(myfile):
 def save_list(mylist, myfile=''):
 
     debug_msg("Saving List to file")
+
+    if not mylist:
+        debug_msg("There were no IDs found. Save Aborted.")
+        return
     
     # from pprint import pprint
 
@@ -955,9 +965,6 @@ def save_list(mylist, myfile=''):
     # pprint(ids)
     # sys.exit(0)
     # #pprint(globals())
-
-
-    debug_msg("IDs Found: "+str(len(ids)) + ' ' + str(type(ids)))
     #debug_msg(','.join(ids) +"\n")
     #print str(vars(ids))
 
@@ -965,6 +972,8 @@ def save_list(mylist, myfile=''):
     if not ids:
         debug_msg("There were no IDs found. Save Aborted.")
         return
+
+    debug_msg("IDs Found: "+str(len(ids)) + ' ' + str(type(ids)))
 
     if not myfile:
         global lastReadIdsFile
