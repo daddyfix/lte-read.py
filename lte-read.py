@@ -721,6 +721,7 @@ def get_key_list(mykeys, mylist):
 ---------------------------------------------------- """
 def get_key_values(mykeys, mylist):
 
+    new_dict={}
     new_list=[]
 
     if type(mykeys) is str:
@@ -731,16 +732,19 @@ def get_key_values(mykeys, mylist):
                 new_list.append(item[mykeys])
 
     if type(mykeys) is list:
+        debug_msg("get_key_values: Adding a dictionary of items to a list")
         for item in mylist:
-            tmp_list = []
+            tmp_dict={}
             for k in mykeys:
                 if k in item:
                     #debug_msg("get_key_values: appending "+item[k]+" "+','.join(item)+" to tmp_list")
-                    debug_msg("get_key_values: appending "+item[k]+" to tmp_list")
-                    tmp_list.append(item[k])
-            new_list.append(tmp_list)
+                    debug_msg("Adding "+ k +":"+ item[k])
+                    tmp_dict[k]=item[k]
+            new_list.append(tmp_dict)
 
-        new_list.sort(key=itemgetter(0))
+        #new_list = sorted(new_list, key=lambda k: k['id'])
+        new_list = sorted(new_list, key=itemgetter('datetime'))
+        #new_list.sort(key=itemgetter(0))
 
     #print(*new_list, sep = "\n")
     #print('\n'.join(map(str, new_list)))
