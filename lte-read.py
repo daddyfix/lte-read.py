@@ -3,7 +3,10 @@
 
 """ ----------------------------------------------------------
 CHANGELOG
-
+Oct 2 2020
+    - Fixed --shortcodes bug
+    - Fixed --showlist bug
+     
 Jan 1 2020
     - Added function to allow output of more than one search key
       by allowing multiple keys (-k)
@@ -405,7 +408,7 @@ def parse_all_messages(bulk_msgs, msg_separator='^\\+CMGL:'):
                 result.append(item)
                 pointer = 0
 
-    debug_msg(str(len(result))+" Total Messages Read")
+    debug_msg("\nTotal Messages Read: "+ str(len(result))+"\n")
 
     result = sort_msgs_by_date(result)
 
@@ -502,7 +505,7 @@ def get_messages_by_ids(mylist, myids):
 ---------------------------------------------------- """
 def get_shortcodes(mylist):
 
-    debug_msg("Searching messages which are not 7-11 Digits (shortcodes)...")
+    debug_msg("Searching messages with mobiles outside 7-11 Digits (shortcodes)...")
 
     new_list= []
 
@@ -929,13 +932,34 @@ def save_date(myfile):
 def save_list(mylist, myfile=''):
 
     debug_msg("Saving List to file")
+    
+    # from pprint import pprint
+
+    # debug_msg("is Dict mylist? "+str(type(mylist)))
+    # pprint(mylist[2])
+
+    # debug_msg("is List mylist0? "+str(type(mylist[0])))
+
 
     # check if first element in list is multidemetional ie. [ [1,2,3], [4,5,6] ]
-    if isinstance(mylist[0], list):
+    if isinstance(mylist[0], dict):
+        debug_msg("Getting list of IDs from list of dictionaries")
         # make a new list of only IDs
         ids = get_key_values('id', mylist)
+
     else:
+        #debug_msg("List given is "+str(type(mylist)))
         ids = mylist
+
+    # pprint(mylist[2])
+    # pprint(ids)
+    # sys.exit(0)
+    # #pprint(globals())
+
+
+    debug_msg("IDs Found: "+str(len(ids)) + ' ' + str(type(ids)))
+    #debug_msg(','.join(ids) +"\n")
+    #print str(vars(ids))
 
     # Dont save unless the list has values
     if not ids:
@@ -946,9 +970,9 @@ def save_list(mylist, myfile=''):
         global lastReadIdsFile
         myfile = lastReadIdsFile
     with open(myfile, "w") as f:
-        f.write(','.join(mylist) +"\n")
+        f.write(','.join(ids) +"\n")
 
-    debug_msg("Lines Saved: "+str(len(mylist)))
+    debug_msg( str(len(ids)) + " lines saved to: "+str(myfile))
 # END Function
 
 
@@ -970,7 +994,8 @@ def load_list(myfile=''):
     else:
         with open(myfile, "r") as f:
             for line in f:
-                mylist = line.split(",")
+                tmplist = line.split(",")
+                mylist = [sub.replace('\r', '').replace('\n', '') for sub in tmplist]
                 #record.append()
                 #mylist.append(tmp_list)
                 #record=[]
@@ -1056,7 +1081,6 @@ parser.add_argument('--text', action='store_true', help='Output results as text'
 # Add all the Command Line args to array(list)
 args = vars(parser.parse_args())
 
-
 """ --------------------------------------------
     If no arguments have been passed
 ------------------------------------------------"""
@@ -1093,13 +1117,18 @@ if args['key']:
 ----------------------------------------------"""
 if args['showlist']:
     mylist = load_list()
-    strlist = ''
-    for s in mylist:
-        strlist+=" ".join(map(str, s))+"\n"
-    debug_msg("Last read or search IDs\n"+strlist)
-    if not strlist:
-        strlist = "empty"
-    print strlist
+    if args['text']:
+        print ' '.join(mylist)
+    else:
+        import json
+        print json.dumps(mylist)
+    # strlist = ''
+    # for s in mylist:
+    #     strlist+=" ".join(map(str, s))
+    # debug_msg("Last read or search IDs\n"+strlist)
+    # if not strlist:
+    #     strlist = "empty"
+    # print strlist
     sys.exit()
 
 
@@ -1243,6 +1272,7 @@ message_list = read_all()
 
 
 
+
 """ ---------------------------------
     Read all messages
 ----------------------------------"""
@@ -1265,6 +1295,26 @@ if args['readall']:
 
     output_close(message_list)
 
+
+""" ---------------------------------
+    Read all shortcoded messages 
+----------------------------------"""
+if args['shortcodes']:
+
+    if not message_list:
+        msg = "empty"
+        output_close(msg)
+
+    message_list = get_shortcodes(message_list)
+    if not message_list:
+        save_list([])
+        output_close("empty")
+    else:
+        save_list(message_list)
+
+    ids = get_key_list(['id'], message_list)
+
+    output_close(ids)
 
 """ ---------------------------------
     Search All Messages
@@ -1374,5 +1424,7 @@ if args['deletelastn'] is None or args['deletelastn'] > -1:
     result = action_by_ID('delete', ids)
 
     output_close(result)
+
+
 
 
